@@ -1,0 +1,38 @@
+# Dependencies
+/node_modules
+/.pnpm-store
+
+# Testing
+/coverage
+
+# Production Build Output
+/build
+/dist
+
+# Environment Variables & Secrets (CRITICAL)
+.env
+.env.local
+.env.example
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel Deployment Metadata
+/.vercel
+
+# Logs and Lockfiles Conflicts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Remove package-lock.json if you use yarn, or yarn.lock if you use npm
+package-lock.json
+
+# IDE and OS Files
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
