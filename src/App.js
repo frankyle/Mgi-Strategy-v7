@@ -22,6 +22,8 @@ import SetupMatchGrader from "./pages/SetupMatchGrader/SetupMatchGrader";
 import FinanceTracker from "./pages/FinanceTracker/FinanceTracker";
 import TradeBlog from "./pages/TradeBlog/TradeBlog";
 import PublicTradeBlog from "./pages/TradeBlog/PublicTradeBlog";
+import TradersBlog from "./pages/TradersIdea/TradersBlog";
+import PublicTradersBlog from "./pages/TradersIdea/PublicTradersBlog";
 import SignalsFeed from "./pages/SignalsFeed/SignalsFeed";
 
 const pageVariants = {
@@ -60,8 +62,9 @@ function App() {
         <Route path="/signin" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
 
-        {/* 🌍 PUBLIC SHARE LINK — no login needed, this is what friends open */}
+        {/* 🌍 PUBLIC SHARE LINKS — no login needed, this is what friends open */}
         <Route path="/blog/:userId" element={<PublicTradeBlog />} />
+        <Route path="/trader-blog/:userId" element={<PublicTradersBlog />} />
 
         {/* 🔒 PROTECTED ROUTES — signed in required for everything below.
             Lives under /dashboard now (used to be "/"), so the bare root URL
@@ -98,6 +101,10 @@ function App() {
           <Route
             path="trade-blog"
             element={<ProtectedRoute adminOnly><TradeBlog /></ProtectedRoute>}
+          />
+          <Route
+            path="traders-blog"
+            element={<ProtectedRoute adminOnly><TradersBlog /></ProtectedRoute>}
           />
           <Route
             path="finance"

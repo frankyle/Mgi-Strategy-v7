@@ -25,6 +25,7 @@ const menuItems = [
   { title: "Trade Blog", url: "/dashboard/trade-blog", icon: Newspaper, adminOnly: true },
   { title: "Signals", url: "/dashboard/signals", icon: Radio, adminOnly: false },
   { title: "Traders Ideas", url: "/dashboard/tradersidea", icon: Lightbulb, adminOnly: true },
+  { title: "Traders Blog", url: "/dashboard/traders-blog", icon: Newspaper, adminOnly: true },
   { title: "Finance Tracker", url: "/dashboard/finance", icon: Wallet, adminOnly: true },
   { title: "Personal Account", url: "/dashboard/personal", icon: DollarSign, adminOnly: true },
   { title: "Funded Account", url: "/dashboard/funded", icon: Package, adminOnly: true },
