@@ -253,6 +253,64 @@ export const updateIdea = async (id, updatedFields = {}, existingIdea = {}) => {
   }
 };
 
+// ============================================================
+// Traders Blog — publish / unpublish
+// Mirrors SetupMatchGraderService's setSetupPublished / getPublishedSetupsForUser,
+// but reads/writes the trader_ideas table. Requires
+// trader_ideas_publish_migration.sql to have been run in Supabase.
+// ============================================================
+
+// Public fetch — no auth required. Row Level Security only returns rows
+// that have flipped to is_published = true, regardless of who (or whether
+// anyone) is signed in when this runs.
+export const getPublishedIdeasForUser = async (userId) => {
+  try {
+    if (!userId) return formatError("Missing user id.");
+
+    const { data, error } = await supabase
+      .from("trader_ideas")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("is_published", true)
+      .order("published_at", { ascending: false });
+
+    if (error) return formatError(error);
+    return { success: true, data: data || [] };
+  } catch (err) {
+    return formatError(err);
+  }
+};
+
+// Publish / unpublish a trader idea to the public Traders Blog.
+// caption is the optional "here's the idea" note friends will read alongside the images.
+// pkg is the optional display badge — "starter" | "pro" | "mentorship" | null.
+export const setIdeaPublished = async (id, isPublished, caption = null, pkg = undefined) => {
+  try {
+    const user = await getAuthUser();
+    if (!user) return formatError("Authentication required: User not logged in.");
+
+    const payload = {
+      is_published: isPublished,
+      published_at: isPublished ? new Date().toISOString() : null,
+    };
+    if (caption !== null) payload.caption = caption;
+    if (pkg !== undefined) payload.package = pkg || null;
+
+    const { data, error } = await supabase
+      .from("trader_ideas")
+      .update(payload)
+      .eq("id", id)
+      .select();
+
+    if (error) return formatError(error);
+    if (!data || data.length === 0) return formatError("Update operation returned no data.");
+
+    return { success: true, data };
+  } catch (err) {
+    return formatError(err);
+  }
+};
+
 export const deleteIdeaById = async (ideaOrId) => {
   try {
     let idea = null;

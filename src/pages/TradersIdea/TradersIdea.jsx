@@ -104,6 +104,7 @@ function TradersIdea() {
             setModalOpen(true);
           }}
           onDelete={handleDelete}
+          onChange={loadIdeas}
         />
       
 

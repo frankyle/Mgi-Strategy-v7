@@ -3,14 +3,30 @@ import React, { useState, useMemo } from "react";
 import {
   Pencil,
   Trash2,
+  Share2,
+  EyeOff,
   Calendar,
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
+import toast from "react-hot-toast";
 import ImageGalleryModal from "./ImageGalleryModal";
 import ImagePreviewOnHover from "./ImagePreviewOnHover";
+import PublishModal from "./PublishModal";
+import { setIdeaPublished } from "./TradersIdeaService";
 
-function TradersIdeaTable({ ideas = [], onEdit, onDelete }) {
+function TradersIdeaTable({ ideas = [], onEdit, onDelete, onChange }) {
+  const [publishTarget, setPublishTarget] = useState(null);
+
+  const handleUnpublish = async (id) => {
+    const result = await setIdeaPublished(id, false);
+    if (!result.success) {
+      toast.error(result.error.message || "Could not unpublish");
+      return;
+    }
+    toast.success("Removed from Traders Blog");
+    onChange?.();
+  };
   /* =======================
      IMAGE GALLERY STATE
   ======================== */
@@ -210,12 +226,31 @@ function TradersIdeaTable({ ideas = [], onEdit, onDelete }) {
                       <button
                         onClick={() => onEdit(item)}
                         className="p-2 text-amber-600 hover:bg-amber-100 rounded-full"
+                        title="Edit"
                       >
                         <Pencil size={18} />
                       </button>
+                      {item.is_published ? (
+                        <button
+                          onClick={() => handleUnpublish(item.id)}
+                          className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-full"
+                          title="Published — click to remove from blog"
+                        >
+                          <EyeOff size={18} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setPublishTarget(item)}
+                          className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-full"
+                          title="Publish to Traders Blog"
+                        >
+                          <Share2 size={18} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onDelete(item)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-full"
+                        title="Delete"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -234,6 +269,18 @@ function TradersIdeaTable({ ideas = [], onEdit, onDelete }) {
           images={galleryState.images}
           initialIndex={galleryState.initialIndex}
           onClose={closeModal}
+        />
+      )}
+
+      {/* ================= PUBLISH MODAL ================= */}
+      {publishTarget && (
+        <PublishModal
+          idea={publishTarget}
+          onClose={() => setPublishTarget(null)}
+          onPublished={() => {
+            setPublishTarget(null);
+            onChange?.();
+          }}
         />
       )}
     </div>
