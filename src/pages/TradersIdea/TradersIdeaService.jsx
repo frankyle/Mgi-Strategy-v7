@@ -120,6 +120,7 @@ export const addIdea = async (idea) => {
       pair: idea.pair,
       signal: idea.signal || "Buy",
       day: new Date(idea.date).toLocaleDateString("en-US", { weekday: "long" }),
+      journal: idea.journal || null,
       user_id: user.id,
     };
 

@@ -1,6 +1,7 @@
 // TradersIdeaForm.jsx
 import React, { useState, useEffect } from "react";
 import { Upload, X, Calendar, DollarSign, BarChart2 } from 'lucide-react'; 
+import JournalSection, { normalizeJournal } from "./JournalSection";
 
 // Array defining the days and their corresponding keys
 const DAY_FIELDS = [
@@ -30,6 +31,7 @@ function TradersIdeaForm({ initialData, onSubmit, onClose }) {
     date: initialData?.date || today,
     pair: initialData?.pair || "",
     signal: initialData?.signal || "Buy",
+    journal: normalizeJournal(initialData?.journal),
     ...initialImageState,
   });
 
@@ -44,6 +46,7 @@ function TradersIdeaForm({ initialData, onSubmit, onClose }) {
         date: initialData.date || today,
         pair: initialData.pair || "",
         signal: initialData.signal || "Buy",
+        journal: normalizeJournal(initialData.journal),
         ...getInitialImageState(initialData),
       }));
 
@@ -222,6 +225,12 @@ function TradersIdeaForm({ initialData, onSubmit, onClose }) {
         </div>
       </div>
 
+      {/* Journal: psychology, Fibonacci, A-setup checklist */}
+      <JournalSection
+        value={form.journal}
+        onChange={(journal) => setForm((prev) => ({ ...prev, journal }))}
+      />
+
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-200">
         <button 
@@ -235,7 +244,7 @@ function TradersIdeaForm({ initialData, onSubmit, onClose }) {
           onClick={handleSubmit} 
           className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 font-bold transition-colors shadow-md hover:shadow-lg w-full sm:w-auto order-1 sm:order-2"
         >
-          Save Idea
+          Save to report
         </button>
       </div>
     </div>
