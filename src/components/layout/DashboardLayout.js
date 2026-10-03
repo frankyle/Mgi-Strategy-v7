@@ -11,7 +11,8 @@ const TITLES = {
   "/dashboard/funded": "Funded Account",
   "/dashboard/tradersidea": "Traders Ideas",
   "/dashboard/setup-match-grader": "Setup Match Grader",
-  "/dashboard/trade-blog": "Trade Blog",
+  "/dashboard/weekly-report": "Weekly Report",
+  "/dashboard/traders-blog": "Traders Blog",
   "/dashboard/signals": "Signals",
   "/dashboard/finance": "Finance Tracker",
 };

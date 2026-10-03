@@ -13,7 +13,7 @@ export const A_CHECKS = [
 ];
 
 const FIB_LEVELS = ["0.382", "0.5", "0.618", "0.786", "Other"];
-const MOODS = ["Calm", "Confident", "Impatient", "Anxious", "Revenge", "FOMO", "Bored"];
+export const MOODS = ["Calm", "Confident", "Impatient", "Anxious", "Revenge", "FOMO", "Bored"];
 
 const TIMEFRAMES = [
   { key: "monthly", label: "Monthly", job: "Find the big swing. Draw the fib from the last major high to low." },

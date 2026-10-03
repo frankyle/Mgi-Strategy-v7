@@ -63,6 +63,7 @@ function TradersIdea() {
 
   // DELETE IDEA
   const handleDelete = async (idea) => {
+    if (!window.confirm(`Delete ${idea.pair} (${idea.date}) permanently?`)) return;
     // Pass the whole idea object to the service to help with image path deletion
     const response = await deleteIdeaById(idea); 
 
