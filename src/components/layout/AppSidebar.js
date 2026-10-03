@@ -56,7 +56,7 @@ export function AppSidebar({ mobileOpen, setMobileOpen }) {
   return (
     <div
       className={`
-        fixed lg:static z-30 h-full bg-white border-r border-gray-100 flex flex-col
+        fixed lg:static z-40 inset-y-0 lg:inset-auto lg:h-auto lg:min-h-screen bg-white border-r border-gray-100 flex flex-col
         transition-all duration-300
         ${collapsed ? "w-20" : "w-64"}
         ${mobileOpen ? "left-0" : "-left-64"}

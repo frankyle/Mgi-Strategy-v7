@@ -49,8 +49,112 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
     );
   }
 
+  const gradeLabel = (g) => (g === "full" ? "Full Match" : g === "partial" ? "Partial" : "No Match");
+  const sessionLabel = (v) =>
+    SESSION_GRAB_OPTIONS.find((o) => o.value === v)
+      ?.label.replace(" session grab", "")
+      .replace("No session liquidity grab yet", "No grab") || "—";
+
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+    <div>
+      {/* ============ PHONE CARDS ============ */}
+      <div className="md:hidden space-y-3">
+        {setups.map((s) => {
+          const styles = GRADE_STYLES[s.grade];
+          const badge = OUTCOME_BADGE[s.outcome_status] || OUTCOME_BADGE.pending;
+          const BadgeIcon = badge.icon;
+          return (
+            <div key={s.id} className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${styles.border}`}>
+              <div className="p-4 pb-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-lg font-bold text-gray-900 truncate">{s.pair}</p>
+                  <p className="text-xs mt-0.5">
+                    <span className={s.htf_direction === "long" ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+                      {s.htf_direction}
+                    </span>
+                    {" → "}
+                    <span className={s.ltf_direction === "long" ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>
+                      {s.ltf_direction}
+                    </span>
+                    {s.is_published && (
+                      <span className="ml-2 text-[10px] font-bold uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">
+                        Published
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full border ${styles.border} ${styles.bg} ${styles.text}`}>
+                  {gradeLabel(s.grade)}
+                </span>
+              </div>
+
+              <dl className="px-4 pb-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                <div>
+                  <dt className="text-gray-400 uppercase text-[10px]">HTF</dt>
+                  <dd className="text-gray-700">{s.htf_timeframe}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400 uppercase text-[10px]">Level</dt>
+                  <dd className="text-gray-700">{s.htf_level_type} · {s.htf_level_status}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400 uppercase text-[10px]">Reaction</dt>
+                  <dd className="text-gray-700">{HTF_REACTIONS.find((r) => r.value === s.htf_reaction)?.label || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-400 uppercase text-[10px]">LTF trigger</dt>
+                  <dd className="text-gray-700">
+                    <span className={s.ltf_weekly_bias === "blue" ? "text-blue-600" : "text-rose-600"}>
+                      {s.ltf_weekly_bias === "blue" ? "Blue" : s.ltf_weekly_bias === "red" ? "Red" : "—"}
+                    </span>
+                    {" / "}
+                    {sessionLabel(s.ltf_session_grab)}
+                    {s.ltf_fvg_tagged ? <span className="text-sky-600"> · FVG</span> : null}
+                  </dd>
+                </div>
+              </dl>
+
+              {(s.htf_chart_url || s.ltf_chart_url) && (
+                <div className="px-4 pb-3 flex gap-2">
+                  {s.htf_chart_url && (
+                    <button onClick={() => setZoomImg(s.htf_chart_url)} className="text-center">
+                      <img src={s.htf_chart_url} alt="HTF chart" className="w-20 h-16 object-cover rounded-lg border-2 border-blue-200" />
+                      <span className="block text-[10px] text-gray-500 mt-0.5">Daily/4H</span>
+                    </button>
+                  )}
+                  {s.ltf_chart_url && (
+                    <button onClick={() => setZoomImg(s.ltf_chart_url)} className="text-center">
+                      <img src={s.ltf_chart_url} alt="LTF chart" className="w-20 h-16 object-cover rounded-lg border-2 border-green-200" />
+                      <span className="block text-[10px] text-gray-500 mt-0.5">15m</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 border-t border-gray-100 divide-x divide-gray-100 text-[11px] font-semibold">
+                <button onClick={() => setOutcomeTarget(s)} className={`flex flex-col items-center gap-1 py-3 active:bg-gray-50 ${badge.cls.split(" ")[0]}`}>
+                  <BadgeIcon size={18} /> {badge.label}
+                </button>
+                {s.is_published ? (
+                  <button onClick={() => handleUnpublish(s.id)} className="flex flex-col items-center gap-1 py-3 text-emerald-600 active:bg-emerald-50">
+                    <EyeOff size={18} /> Unpublish
+                  </button>
+                ) : (
+                  <button onClick={() => setPublishTarget(s)} className="flex flex-col items-center gap-1 py-3 text-indigo-600 active:bg-indigo-50">
+                    <Share2 size={18} /> Publish
+                  </button>
+                )}
+                <button onClick={() => handleDelete(s.id, s.htf_chart_url, s.ltf_chart_url)} className="flex flex-col items-center gap-1 py-3 text-rose-600 active:bg-rose-50">
+                  <Trash2 size={18} /> Delete
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ============ DESKTOP TABLE ============ */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
@@ -177,10 +281,11 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
           })}
         </tbody>
       </table>
+      </div>
 
       {zoomImg && (
         <div
-          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4"
           onClick={() => setZoomImg(null)}
         >
           <img src={zoomImg} alt="Zoomed chart" className="max-h-[85vh] max-w-full rounded-xl" />
