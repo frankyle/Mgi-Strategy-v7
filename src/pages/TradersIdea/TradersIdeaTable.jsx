@@ -287,6 +287,114 @@ function TradersIdeaTable({ ideas = [], onEdit, onDelete, onChange }) {
         </table>
       </div>
 
+      {/* ================= PHONE CARDS ================= */}
+      <div className="md:hidden space-y-3">
+        {sortedIdeas.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center text-sm text-gray-500">
+            No trader ideas yet. Tap + to add one.
+          </div>
+        ) : (
+          sortedIdeas.map((item) => {
+            const isBuy = item.signal?.toLowerCase() === "buy";
+            const imgs = weekly.filter(({ key }) => item[key]);
+            return (
+              <div
+                key={item.id}
+                className={`bg-white rounded-2xl border shadow-sm overflow-hidden border-l-4 ${
+                  isBuy ? "border-l-green-500" : "border-l-red-500"
+                } border-gray-100`}
+              >
+                <div className="p-4 pb-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-lg font-bold text-gray-900 truncate">{item.pair}</p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {formatDate(item.date)}
+                      {item.is_published && (
+                        <span className="ml-2 text-[10px] font-bold uppercase text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full">
+                          Published
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                      isBuy ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {getSignalIcon(item.signal)}
+                    {item.signal?.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* chart thumbnails — tap to open */}
+                <div className="px-4 pb-3">
+                  {imgs.length === 0 ? (
+                    <p className="text-xs text-gray-400">No charts added</p>
+                  ) : (
+                    <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                      {imgs.map(({ key, day }) => (
+                        <button
+                          key={key}
+                          onClick={() => handleImageClick(item, key)}
+                          className="shrink-0 text-center"
+                        >
+                          <img
+                            src={item[key]}
+                            alt={`${item.pair} ${day}`}
+                            className="w-16 h-16 object-cover rounded-lg border-2 border-gray-200"
+                          />
+                          <span className="block text-[10px] font-medium text-gray-500 mt-0.5">
+                            {day.slice(0, 3)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* actions */}
+                <div className="grid grid-cols-4 border-t border-gray-100 divide-x divide-gray-100 text-[11px] font-semibold">
+                  <button
+                    onClick={() => onEdit(item)}
+                    className="flex flex-col items-center gap-1 py-3 text-amber-600 active:bg-amber-50"
+                  >
+                    <Pencil size={18} /> Edit
+                  </button>
+                  {item.is_published ? (
+                    <button
+                      onClick={() => handleUnpublish(item.id)}
+                      className="flex flex-col items-center gap-1 py-3 text-indigo-600 active:bg-indigo-50"
+                    >
+                      <EyeOff size={18} /> Unpublish
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setPublishTarget(item)}
+                      className="flex flex-col items-center gap-1 py-3 text-indigo-600 active:bg-indigo-50"
+                    >
+                      <Share2 size={18} /> Publish
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleSendToReport(item)}
+                    className="flex flex-col items-center gap-1 py-3 text-emerald-600 active:bg-emerald-50"
+                  >
+                    <FileText size={18} /> Report
+                  </button>
+                  <button
+                    onClick={() => onDelete(item)}
+                    className="flex flex-col items-center gap-1 py-3 text-red-600 active:bg-red-50"
+                  >
+                    <Trash2 size={18} /> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {/* ================= IMAGE GALLERY ================= */}
       {galleryState.isOpen && (
         <ImageGalleryModal

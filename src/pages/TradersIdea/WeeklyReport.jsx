@@ -227,6 +227,94 @@ function IdeaRow({ idea, onOpenImages, onDelete, onEdit }) {
   );
 }
 
+function IdeaCard({ idea, onOpenImages, onDelete, onEdit }) {
+  const f = ideaFacts(idea);
+  const isBuy = idea.signal?.toLowerCase() === "buy";
+  const images = DAYS.map(({ key, day }) => ({ day, url: idea[key] })).filter((i) => i.url);
+
+  return (
+    <div className={`p-4 border-l-4 ${isBuy ? "border-l-green-500" : "border-l-red-500"}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-bold text-gray-900">{idea.pair}</p>
+          <p className="text-xs text-gray-500">{fmtDate(idea.date)}</p>
+        </div>
+        <span
+          className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${
+            isBuy ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+          }`}
+        >
+          {isBuy ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+          {idea.signal?.toUpperCase()}
+        </span>
+      </div>
+
+      {/* the four fields you fill in */}
+      <div
+        className={`mt-3 grid grid-cols-4 gap-2 rounded-xl p-2.5 text-center ${
+          f.needsReview ? "bg-amber-50 border border-amber-200" : "bg-gray-50"
+        }`}
+      >
+        <div>
+          <p className="text-[10px] uppercase text-gray-400">A-checks</p>
+          <p className={`text-sm font-semibold ${f.isASetup ? "text-green-700" : "text-gray-700"}`}>
+            {f.checksPassed === null ? "–" : `${f.checksPassed}/${f.checksTotal}`}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase text-gray-400">Mood</p>
+          <p className="text-sm font-semibold text-gray-700 truncate">{f.mood || "–"}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase text-gray-400">Plan</p>
+          <p className="text-sm font-semibold text-gray-700">
+            {f.followedPlan === null ? "–" : f.followedPlan ? "Yes" : "No"}
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase text-gray-400">Result</p>
+          <p className={`text-sm font-bold ${rColor(f.resultR)}`}>
+            {f.needsReview ? "Fill in" : fmtR(f.resultR)}
+          </p>
+        </div>
+      </div>
+
+      {images.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto mt-3 pb-1">
+          {images.map((img, idx) => (
+            <button key={img.day} onClick={() => onOpenImages(images, idx)} className="shrink-0 text-center">
+              <img
+                src={img.url}
+                alt={`${idea.pair} ${img.day}`}
+                className="w-14 h-14 object-cover rounded-lg border border-gray-200"
+              />
+              <span className="block text-[10px] text-gray-500 mt-0.5">{img.day.slice(0, 3)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={() => onEdit(idea)}
+          className={`flex-1 flex items-center justify-center gap-1.5 text-sm font-semibold py-2.5 rounded-xl ${
+            f.needsReview ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700"
+          }`}
+        >
+          <Pencil size={15} /> {f.needsReview ? "Fill in review" : "Edit review"}
+        </button>
+        <button
+          onClick={() => onDelete(idea)}
+          className="px-4 py-2.5 rounded-xl bg-red-50 text-red-600"
+          aria-label="Delete from report"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- page ---------- */
 
 function WeeklyReport() {
@@ -288,8 +376,8 @@ function WeeklyReport() {
   const setAll = (v) => setOpen(Object.fromEntries(weeks.map((w) => [w.key, v])));
 
   return (
-    <div className="p-6 max-w-6xl mx-auto space-y-6 animate-fadeIn">
-      <Toaster position="top-right" />
+    <div className="p-1 sm:p-6 max-w-6xl mx-auto space-y-5 sm:space-y-6 animate-fadeIn">
+      <Toaster position="top-center" />
 
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
@@ -414,6 +502,12 @@ function WeeklyReport() {
                           </span>
                         )}
                       </p>
+                      {(s.needsReview > 0 || s.totalR !== null) && (
+                        <p className="sm:hidden text-xs font-semibold mt-0.5">
+                          {s.totalR !== null && <span className={rColor(s.totalR)}>{fmtR(s.totalR)} </span>}
+                          {s.needsReview > 0 && <span className="text-amber-700">· {s.needsReview} to review</span>}
+                        </p>
+                      )}
                       <p className="text-xs text-gray-500 mt-0.5 truncate">
                         {s.count} idea{s.count === 1 ? "" : "s"} · {s.buys} buy / {s.sells} sell ·{" "}
                         {s.pairs.join(", ")}
@@ -448,7 +542,19 @@ function WeeklyReport() {
                 </div>
 
                 {isOpen && (
-                  <div className="overflow-x-auto border-t border-gray-100">
+                  <>
+                  <div className="md:hidden border-t border-gray-100 divide-y divide-gray-100">
+                    {w.ideas.map((i) => (
+                      <IdeaCard
+                        key={i.id}
+                        idea={i}
+                        onOpenImages={(images, idx) => setGallery({ images, idx })}
+                        onDelete={handleDelete}
+                        onEdit={setEditing}
+                      />
+                    ))}
+                  </div>
+                  <div className="hidden md:block overflow-x-auto border-t border-gray-100">
                     <table className="min-w-full">
                       <thead>
                         <tr className="bg-gray-50 text-gray-600 text-[11px] uppercase">
@@ -476,6 +582,7 @@ function WeeklyReport() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
             );

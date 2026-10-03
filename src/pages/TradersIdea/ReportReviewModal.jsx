@@ -31,8 +31,8 @@ function ReportReviewModal({ report, onClose, onSaved }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg max-h-[92vh] overflow-y-auto">
         <div className="flex items-start justify-between p-5 border-b border-gray-100">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Review this trade</h2>

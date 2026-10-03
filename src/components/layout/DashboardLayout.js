@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
+import { BottomNav } from "./BottomNav";
 import { motion } from "framer-motion";
 import { Menu, Search, Bell } from "lucide-react";
 import { useState } from "react";
@@ -37,7 +38,7 @@ export function DashboardLayout() {
       {/* Mobile Overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -108,7 +109,7 @@ export function DashboardLayout() {
         </header>
 
         <motion.main
-          className="flex-1 p-4 sm:p-6"
+          className="flex-1 p-3 sm:p-6 pb-28 lg:pb-6"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
@@ -116,6 +117,9 @@ export function DashboardLayout() {
           <Outlet />
         </motion.main>
       </div>
+
+      {/* Phone bottom navigation */}
+      <BottomNav onMore={() => setMobileOpen(true)} />
     </div>
   );
 }
