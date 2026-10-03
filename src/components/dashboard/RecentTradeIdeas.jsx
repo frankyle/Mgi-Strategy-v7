@@ -25,8 +25,8 @@ export default function RecentTradeIdeas({ ideas }) {
           <Newspaper className="w-5 h-5 text-long" />
           Recently Published
         </h2>
-        <Link to="/dashboard/trade-blog" className="text-xs font-medium text-long hover:underline">
-          View blog
+        <Link to="/dashboard/signals" className="text-xs font-medium text-long hover:underline">
+          View signals
         </Link>
       </div>
 

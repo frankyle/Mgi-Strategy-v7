@@ -4,6 +4,7 @@ import {
   Pencil,
   Trash2,
   Share2,
+  FileText,
   EyeOff,
   Calendar,
   TrendingUp,
@@ -14,8 +15,24 @@ import ImageGalleryModal from "./ImageGalleryModal";
 import ImagePreviewOnHover from "./ImagePreviewOnHover";
 import PublishModal from "./PublishModal";
 import { setIdeaPublished } from "./TradersIdeaService";
+import { sendIdeaToReport } from "./TradersReportService";
 
 function TradersIdeaTable({ ideas = [], onEdit, onDelete, onChange }) {
+  const handleSendToReport = async (item) => {
+    const msg =
+      `Send ${item.pair} (${item.date}) to the Weekly Report?\n\n` +
+      "It will be moved out of Traders Ideas into the report." +
+      (item.is_published ? " It will also be removed from the Traders Blog." : "");
+    if (!window.confirm(msg)) return;
+    const res = await sendIdeaToReport(item);
+    if (!res.success) {
+      toast.error(res.error.message || "Could not send to report");
+      return;
+    }
+    toast.success("Sent to Weekly Report");
+    onChange && onChange();
+  };
+
   const [publishTarget, setPublishTarget] = useState(null);
 
   const handleUnpublish = async (id) => {
@@ -247,6 +264,13 @@ function TradersIdeaTable({ ideas = [], onEdit, onDelete, onChange }) {
                           <Share2 size={18} />
                         </button>
                       )}
+                      <button
+                        onClick={() => handleSendToReport(item)}
+                        className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-full"
+                        title="Send to Weekly Report (moves it out of this list)"
+                      >
+                        <FileText size={18} />
+                      </button>
                       <button
                         onClick={() => onDelete(item)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-full"

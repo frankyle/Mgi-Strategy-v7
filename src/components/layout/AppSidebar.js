@@ -9,6 +9,7 @@ import {
   Target,
   Wallet,
   Newspaper,
+  FileText,
   Radio,
   ChevronLeft,
   ChevronRight,
@@ -22,9 +23,9 @@ import { useAuthProfile } from "../../hooks/useAuthProfile";
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard, adminOnly: true },
   { title: "Setup Match Grader", url: "/dashboard/setup-match-grader", icon: Target, adminOnly: true },
-  { title: "Trade Blog", url: "/dashboard/trade-blog", icon: Newspaper, adminOnly: true },
   { title: "Signals", url: "/dashboard/signals", icon: Radio, adminOnly: false },
   { title: "Traders Ideas", url: "/dashboard/tradersidea", icon: Lightbulb, adminOnly: true },
+  { title: "Weekly Report", url: "/dashboard/weekly-report", icon: FileText, adminOnly: true },
   { title: "Traders Blog", url: "/dashboard/traders-blog", icon: Newspaper, adminOnly: true },
   { title: "Finance Tracker", url: "/dashboard/finance", icon: Wallet, adminOnly: true },
   { title: "Personal Account", url: "/dashboard/personal", icon: DollarSign, adminOnly: true },

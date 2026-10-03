@@ -20,9 +20,9 @@ import PersonalAccount from "./pages/PersonalAccount/PersonalAccount";
 import TradersIdea from "./pages/TradersIdea/TradersIdea";
 import SetupMatchGrader from "./pages/SetupMatchGrader/SetupMatchGrader";
 import FinanceTracker from "./pages/FinanceTracker/FinanceTracker";
-import TradeBlog from "./pages/TradeBlog/TradeBlog";
 import PublicTradeBlog from "./pages/TradeBlog/PublicTradeBlog";
 import TradersBlog from "./pages/TradersIdea/TradersBlog";
+import WeeklyReport from "./pages/TradersIdea/WeeklyReport";
 import PublicTradersBlog from "./pages/TradersIdea/PublicTradersBlog";
 import SignalsFeed from "./pages/SignalsFeed/SignalsFeed";
 
@@ -99,8 +99,8 @@ function App() {
             element={<ProtectedRoute adminOnly><SetupMatchGrader /></ProtectedRoute>}
           />
           <Route
-            path="trade-blog"
-            element={<ProtectedRoute adminOnly><TradeBlog /></ProtectedRoute>}
+            path="weekly-report"
+            element={<ProtectedRoute adminOnly><WeeklyReport /></ProtectedRoute>}
           />
           <Route
             path="traders-blog"
