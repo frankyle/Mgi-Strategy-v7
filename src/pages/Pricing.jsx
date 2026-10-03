@@ -1,88 +1,44 @@
 import { Link } from "react-router-dom";
-
-const plans = [
-  {
-    name: "Starter",
-    price: "Free",
-    period: "",
-    features: [
-      "1 forex setup per day",
-      "Entry, stop-loss, take-profit levels",
-      "Community dashboard access",
-    ],
-    cta: "Get started",
-  },
-  {
-    name: "Pro",
-    price: "$39",
-    period: "/month",
-    features: [
-      "All daily forex setups",
-      "Stock and commodity signals",
-      "Setup notes explaining each call",
-      "Priority updates when trades close",
-    ],
-    cta: "Go Pro",
-    highlight: true,
-  },
-  {
-    name: "Mentorship",
-    price: "$149",
-    period: "/month",
-    features: [
-      "Everything in Pro",
-      "Weekly 1-on-1 review call",
-      "Custom risk plan for your account size",
-    ],
-    cta: "Apply now",
-  },
-];
+import { plans } from "../data/plans";
+import PlanCard from "../components/marketing/PlanCard";
+import { CandleStrip } from "../components/marketing/CandleChart";
 
 export default function Pricing() {
   return (
-    <section className="max-w-6xl mx-auto px-4 py-20">
-      <div className="max-w-xl mb-14">
-        <h1 className="font-display text-3xl font-semibold mb-3">Plans</h1>
-        <p className="text-muted">
-          Start free, upgrade when you're ready for stocks and commodities
-          alongside forex. Cancel any time.
-        </p>
-      </div>
+    <div className="relative overflow-hidden">
+      <div className="absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,rgba(47,191,113,0.15),transparent_70%)]" />
+      <section className="relative max-w-6xl mx-auto px-4 pt-16 pb-24">
+        <div className="max-w-2xl mx-auto text-center mb-14">
+          <p className="font-mono text-xs uppercase tracking-widest text-long mb-3">Plans</p>
+          <h1 className="font-display text-4xl md:text-5xl font-semibold">Pick how deep you want to go</h1>
+          <p className="text-muted mt-4 text-lg">
+            Start free, upgrade when you're ready for stocks and commodities alongside forex.
+            Cancel any time.
+          </p>
+        </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        {plans.map((p) => (
-          <div
-            key={p.name}
-            className={`border p-6 flex flex-col ${
-              p.highlight ? "border-long bg-panel" : "border-line bg-panel/50"
-            }`}
-          >
-            <h2 className="font-display text-lg font-semibold">{p.name}</h2>
-            <p className="font-mono text-3xl mt-3 mb-6">
-              {p.price}
-              <span className="text-muted text-sm">{p.period}</span>
+        <div className="grid md:grid-cols-3 gap-6 md:gap-8">
+          {plans.map((p) => (
+            <PlanCard key={p.name} plan={p} />
+          ))}
+        </div>
+
+        <div className="mt-14 rounded-2xl border border-line bg-panel/70 p-6 sm:p-8 flex flex-col sm:flex-row items-center justify-between gap-5 text-center sm:text-left">
+          <div>
+            <p className="font-display text-xl font-semibold">Not sure which plan fits?</p>
+            <p className="text-muted text-sm mt-1">
+              Create a free account. Our customer support contact is available inside the app once you log in.
             </p>
-            <ul className="text-sm text-muted flex flex-col gap-2 mb-8 flex-1">
-              {p.features.map((f) => (
-                <li key={f} className="flex gap-2">
-                  <span className="text-long">·</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-            <Link
-              to="/signup"
-              className={`text-center px-4 py-2.5 rounded-sm font-medium transition-colors ${
-                p.highlight
-                  ? "bg-long text-base hover:bg-long/90"
-                  : "border border-line hover:border-muted"
-              }`}
-            >
-              {p.cta}
-            </Link>
           </div>
-        ))}
-      </div>
-    </section>
+          <Link
+            to="/signup"
+            className="inline-flex items-center gap-2 bg-long text-base font-semibold px-6 py-3 rounded-xl hover:bg-long/90 transition-colors shrink-0"
+          >
+            Create free account
+          </Link>
+        </div>
+      </section>
+      <CandleStrip className="absolute bottom-0 inset-x-0 opacity-20" seed={5} />
+    </div>
   );
 }

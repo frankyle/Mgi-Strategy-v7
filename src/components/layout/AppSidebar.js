@@ -14,7 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useAuthProfile } from "../../hooks/useAuthProfile";
 
@@ -31,6 +31,8 @@ const menuItems = [
   { title: "Personal Account", url: "/dashboard/personal", icon: DollarSign, adminOnly: true },
   { title: "Funded Account", url: "/dashboard/funded", icon: Package, adminOnly: true },
 ];
+
+const SupportWhatsApp = lazy(() => import("../common/SupportWhatsApp"));
 
 export function AppSidebar({ mobileOpen, setMobileOpen }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -97,7 +99,7 @@ export function AppSidebar({ mobileOpen, setMobileOpen }) {
       </div>
 
       {/* Menu */}
-      <nav className="flex-1 overflow-y-auto py-3 flex flex-col justify-between">
+      <nav className="flex-1 overflow-y-auto py-3 flex flex-col">
         <ul className="space-y-0.5 px-2">
           {visibleItems.map((item) => (
             <li key={item.title}>
@@ -120,6 +122,13 @@ export function AppSidebar({ mobileOpen, setMobileOpen }) {
             </li>
           ))}
         </ul>
+
+        {/* Customer support (signed-in only) */}
+        <div className="px-2 pb-2 mt-auto pt-4">
+          <Suspense fallback={null}>
+            <SupportWhatsApp variant="sidebar" collapsed={collapsed} />
+          </Suspense>
+        </div>
 
         {/* User + Logout */}
         <div className="px-2 pt-3 border-t border-gray-100">

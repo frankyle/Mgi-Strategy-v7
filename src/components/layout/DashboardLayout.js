@@ -3,8 +3,10 @@ import { AppSidebar } from "./AppSidebar";
 import { BottomNav } from "./BottomNav";
 import { motion } from "framer-motion";
 import { Menu, Search, Bell } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useAuthProfile } from "../../hooks/useAuthProfile";
+
+const SupportWhatsApp = lazy(() => import("../common/SupportWhatsApp"));
 
 const TITLES = {
   "/dashboard": "Dashboard",
@@ -120,6 +122,11 @@ export function DashboardLayout() {
 
       {/* Phone bottom navigation */}
       <BottomNav onMore={() => setMobileOpen(true)} />
+
+      {/* Customer support WhatsApp: only exists inside the signed-in app */}
+      <Suspense fallback={null}>
+        <SupportWhatsApp />
+      </Suspense>
     </div>
   );
 }
