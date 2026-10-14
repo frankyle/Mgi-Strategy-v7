@@ -1,7 +1,15 @@
 import React, { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Upload, X, Sparkles } from "lucide-react";
-import { HTF_REACTIONS, LEVEL_STATUS, SESSION_GRAB_OPTIONS, gradeSetup, GRADE_STYLES } from "./grading";
+import {
+  HTF_REACTIONS,
+  HTF_TIMEFRAMES,
+  HTF_ZONE_TYPES,
+  LEVEL_STATUS,
+  SESSION_OPTIONS,
+  gradeSetup,
+  GRADE_STYLES,
+} from "./grading";
 import { addSetup, uploadSetupImage, getAuthUserId } from "./SetupMatchGraderService";
 import { getWatchlistPairs } from "./pairWatchlist";
 import PairSelect from "./PairSelect";
@@ -20,11 +28,11 @@ function fileToBase64(file) {
 const emptyForm = {
   pair: getWatchlistPairs()[0] || "XAUUSD",
   htf_timeframe: "4H",
-  htf_level_type: "Resistance",
+  htf_level_type: "Buy FVG",
   htf_level_status: "Retested",
   htf_reaction: "none",
-  htf_direction: null,
-  ltf_weekly_bias: null,
+  htf_direction: "long",
+  ltf_weekly_bias: null, // no longer used — kept null so the column stays valid
   ltf_session_grab: "none",
   ltf_fvg_tagged: false,
   ltf_direction: null,
@@ -103,6 +111,17 @@ export default function SetupMatchGraderForm({ onSaved }) {
     setForm((f) => ({ ...f, [key]: val }));
   };
 
+  // Picking a zone type also sets the direction: Buy zones -> LONG, Sell zones -> SHORT.
+  const updateZoneType = (value) => {
+    const zone = HTF_ZONE_TYPES.find((z) => z.value === value);
+    setTouched(true);
+    setForm((f) => ({
+      ...f,
+      htf_level_type: value,
+      htf_direction: zone ? zone.direction : f.htf_direction,
+    }));
+  };
+
   const handleHtfFile = (file) => {
     setHtfFile(file);
     setHtfPreview(URL.createObjectURL(file));
@@ -160,7 +179,6 @@ export default function SetupMatchGraderForm({ onSaved }) {
         ...(a.htf_level_status ? { htf_level_status: a.htf_level_status } : {}),
         ...(a.htf_reaction ? { htf_reaction: a.htf_reaction } : {}),
         htf_direction: a.htf_direction ?? f.htf_direction,
-        ltf_weekly_bias: a.ltf_weekly_bias ?? f.ltf_weekly_bias,
         ...(a.ltf_session_grab ? { ltf_session_grab: a.ltf_session_grab } : {}),
         ltf_fvg_tagged: typeof a.ltf_fvg_tagged === "boolean" ? a.ltf_fvg_tagged : f.ltf_fvg_tagged,
         ltf_direction: a.ltf_direction ?? f.ltf_direction,
@@ -180,10 +198,11 @@ export default function SetupMatchGraderForm({ onSaved }) {
   const preview = useMemo(
     () =>
       gradeSetup({
+        htfLevelStatus: form.htf_level_status,
         htfReaction: form.htf_reaction,
         htfDirection: form.htf_direction,
-        ltfWeeklyBias: form.ltf_weekly_bias,
-        ltfSessionGrab: form.ltf_session_grab,
+        ltfSession: form.ltf_session_grab,
+        ltfBounce: form.ltf_fvg_tagged,
         ltfDirection: form.ltf_direction,
       }),
     [form]
@@ -195,11 +214,7 @@ export default function SetupMatchGraderForm({ onSaved }) {
       return;
     }
     if (!form.htf_direction || !form.ltf_direction) {
-      toast.error("Pick a direction for both Phase 1 and Phase 2.");
-      return;
-    }
-    if (!form.ltf_weekly_bias) {
-      toast.error("Pick which side of the weekly open you're trading — blue or red.");
+      toast.error("Pick a direction for both the 4H/2H zone and the 1H confirmation.");
       return;
     }
 
@@ -268,6 +283,15 @@ export default function SetupMatchGraderForm({ onSaved }) {
         <PairSelect value={form.pair} onChange={(p) => update("pair", p)} />
       </div>
 
+      {/* STRATEGY RULES */}
+      <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900 space-y-1">
+        <p>I only trade during the LONDON session or the NEW YORK session.</p>
+        <p>
+          I wait for a higher timeframe 4H or 2H FVG / IFVG to be retested, and then we move in the
+          opposite direction from the retest.
+        </p>
+      </div>
+
       {/* PHASE 1 */}
       <div className="border-t-2 border-blue-500 rounded-t-lg pt-4">
         <div className="flex items-center gap-2 mb-3">
@@ -275,7 +299,7 @@ export default function SetupMatchGraderForm({ onSaved }) {
             PHASE 1
           </span>
           <span className="text-sm font-semibold text-gray-800">
-            HTF Reversal — Daily / 4H
+            HTF Zone Retest — 4H / 2H FVG or IFVG
           </span>
         </div>
 
@@ -287,25 +311,29 @@ export default function SetupMatchGraderForm({ onSaved }) {
               onChange={(e) => update("htf_timeframe", e.target.value)}
               className="w-full mt-1 border border-gray-300 rounded-lg p-2 text-sm"
             >
-              <option>Daily</option>
-              <option>4H</option>
+              {HTF_TIMEFRAMES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
             </select>
           </div>
           <div>
-            <label className="text-xs text-gray-500">Level type</label>
+            <label className="text-xs text-gray-500">Zone type</label>
             <select
               value={form.htf_level_type}
-              onChange={(e) => update("htf_level_type", e.target.value)}
+              onChange={(e) => updateZoneType(e.target.value)}
               className="w-full mt-1 border border-gray-300 rounded-lg p-2 text-sm"
             >
-              <option>Support</option>
-              <option>Resistance</option>
+              {HTF_ZONE_TYPES.map((z) => (
+                <option key={z.value} value={z.value}>
+                  {z.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
         <div className="mb-3">
-          <label className="text-xs text-gray-500">Level status</label>
+          <label className="text-xs text-gray-500">Zone status</label>
           <select
             value={form.htf_level_status}
             onChange={(e) => update("htf_level_status", e.target.value)}
@@ -315,10 +343,14 @@ export default function SetupMatchGraderForm({ onSaved }) {
               <option key={s}>{s}</option>
             ))}
           </select>
+          <p className="text-xs text-gray-400 mt-1">
+            It only counts when the zone is <span className="font-semibold">Retested</span>. Broken
+            means price closed through it.
+          </p>
         </div>
 
         <div className="mb-3">
-          <label className="text-xs text-gray-500">Reaction at level</label>
+          <label className="text-xs text-gray-500">Reaction at the retest</label>
           <select
             value={form.htf_reaction}
             onChange={(e) => update("htf_reaction", e.target.value)}
@@ -334,7 +366,7 @@ export default function SetupMatchGraderForm({ onSaved }) {
 
         <div>
           <label className="text-xs text-gray-500 block mb-1">
-            Implied direction
+            Direction price moves away from the zone
           </label>
           <div className="flex gap-2">
             <ToggleBtn
@@ -352,12 +384,16 @@ export default function SetupMatchGraderForm({ onSaved }) {
               SHORT
             </ToggleBtn>
           </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Set automatically from the zone type: Buy zones bounce up (LONG), Sell zones bounce
+            down (SHORT).
+          </p>
         </div>
 
         <div className="mt-3">
           <ChartDrop
-            label="Daily / 4H Chart Screenshot"
-            helpText="Show the level getting swept, and price moving into the opposite zone — the same 'before and after' shift you'd mark with your two boxes (grey → teal, or the reverse). This is your proof the higher timeframe actually reversed, not just touched a line."
+            label="4H / 2H Chart Screenshot"
+            helpText="Show the 4H or 2H FVG / IFVG, the retest of the zone, and price moving away in the opposite direction. This is your proof the zone was really retested and respected."
             preview={htfPreview}
             onFile={handleHtfFile}
             onRemove={removeHtfFile}
@@ -373,59 +409,31 @@ export default function SetupMatchGraderForm({ onSaved }) {
             PHASE 2
           </span>
           <span className="text-sm font-semibold text-gray-800">
-            LTF Continuation — Weekly Bias + Session Liquidity Grab
+            1H Confirmation — London / New York Session
           </span>
         </div>
 
         <div className="mb-3">
-          <label className="text-xs text-gray-500 block mb-1">
-            Weekly bias — which side of the weekly open?
-          </label>
-          <div className="flex gap-2">
-            <ToggleBtn
-              active={form.ltf_weekly_bias === "blue"}
-              onClick={() => update("ltf_weekly_bias", "blue")}
-              activeClass="border-blue-500 bg-blue-50 text-blue-700"
-            >
-              BLUE (BUY)
-            </ToggleBtn>
-            <ToggleBtn
-              active={form.ltf_weekly_bias === "red"}
-              onClick={() => update("ltf_weekly_bias", "red")}
-              activeClass="border-rose-500 bg-rose-50 text-rose-700"
-            >
-              RED (SELL)
-            </ToggleBtn>
-          </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Blue = price trading above the weekly open, only look for buys. Red = price trading
-            below the weekly open, only look for sells.
-          </p>
-        </div>
-
-        <div className="mb-3">
-          <label className="text-xs text-gray-500">Session liquidity grab</label>
+          <label className="text-xs text-gray-500">Session</label>
           <select
             value={form.ltf_session_grab}
             onChange={(e) => update("ltf_session_grab", e.target.value)}
             className="w-full mt-1 border border-gray-300 rounded-lg p-2 text-sm"
           >
-            {SESSION_GRAB_OPTIONS.map((o) => (
+            {SESSION_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
             ))}
           </select>
           <p className="text-xs text-gray-400 mt-1">
-            On a blue/buy bias, this should be a sweep of session lows that gets rejected back up.
-            On a red/sell bias, a sweep of session highs rejected back down.
+            Trades are only valid inside the London or New York session.
           </p>
         </div>
 
         <div className="mb-3">
           <label className="text-xs text-gray-500 block mb-1">
-            FVG present &amp; tapped{" "}
-            <span className="text-gray-400 font-normal">(optional tag — doesn't affect grade)</span>
+            1H FVG / IFVG retested and price bounced away?
           </label>
           <div className="flex gap-2">
             <ToggleBtn
@@ -443,12 +451,14 @@ export default function SetupMatchGraderForm({ onSaved }) {
               NO
             </ToggleBtn>
           </div>
+          <p className="text-xs text-gray-400 mt-1">
+            The 1H chart is only used to compare with the 4H/2H read. Say YES only if the 1H zone
+            was retested and price moved away from it.
+          </p>
         </div>
 
         <div>
-          <label className="text-xs text-gray-500 block mb-1">
-            Entry direction
-          </label>
+          <label className="text-xs text-gray-500 block mb-1">Entry direction</label>
           <div className="flex gap-2">
             <ToggleBtn
               active={form.ltf_direction === "long"}
@@ -466,15 +476,15 @@ export default function SetupMatchGraderForm({ onSaved }) {
             </ToggleBtn>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            Should match your weekly bias — blue/buy bias with a LONG entry, red/sell bias with a
-            SHORT entry. A mismatch here means the setup won't grade as a match.
+            Must match the direction from Phase 1. A mismatch means the setup won't grade as a
+            match.
           </p>
         </div>
 
         <div className="mt-3">
           <ChartDrop
-            label="LTF Chart Screenshot"
-            helpText="Show the weekly open line, the session high/low being swept, and the rejection back in your bias direction. This is your proof the liquidity grab actually happened where you say it did."
+            label="1H Chart Screenshot"
+            helpText="Show the 1H FVG / IFVG, the retest inside the London or New York session, and price bouncing away from it."
             preview={ltfPreview}
             onFile={handleLtfFile}
             onRemove={removeLtfFile}

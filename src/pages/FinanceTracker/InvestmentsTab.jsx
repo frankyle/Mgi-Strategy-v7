@@ -1,6 +1,8 @@
 // InvestmentsTab.jsx
-// Tracks investments you're funding out of the same account — e.g. the
+// Tracks investments you're funding out of your one bank account — e.g. the
 // dehydration machine development and the prop firm account purchase.
+// Every contribution you log here is money OUT of the bank account, so it
+// comes off the bank balance automatically (don't also log it as an expense).
 import React, { useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp, Rocket } from "lucide-react";
 import toast from "react-hot-toast";
@@ -32,13 +34,14 @@ const STATUS_STYLES = {
   Completed: "bg-emerald-100 text-emerald-700",
 };
 
-function InvestmentCard({ investment, onChange }) {
+function InvestmentCard({ investment, onChange, bankBalance = null }) {
   const [expanded, setExpanded] = useState(false);
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayStr());
   const total = computeInvestmentTotal(investment);
   const pct =
     investment.targetAmount > 0 ? Math.min(100, (total / investment.targetAmount) * 100) : null;
+  const leftToFund = investment.targetAmount > 0 ? investment.targetAmount - total : null;
 
   const handleStatusChange = async (status) => {
     const result = await updateInvestment(investment.id, { status });
@@ -51,17 +54,25 @@ function InvestmentCard({ investment, onChange }) {
 
   const handleAddContribution = async (e) => {
     e.preventDefault();
-    if (!amount || Number(amount) <= 0) {
+    const amountNum = Number(amount);
+    if (!amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       toast.error("Enter an amount.");
       return;
     }
-    const result = await addContribution(investment.id, { amount, date });
+    const result = await addContribution(investment.id, { amount: amountNum, date });
     if (!result.success) {
       toast.error(result.error?.message || "Failed to save.");
       return;
     }
-    toast.success("Contribution logged.");
+    toast.success("Contribution logged — taken off your bank balance.");
+    // Soft warning only — it still saves.
+    if (bankBalance !== null && amountNum > bankBalance) {
+      toast("That is more than your tracked bank balance — check for income you haven't logged.", {
+        icon: "⚠️",
+      });
+    }
     setAmount("");
+    setDate(todayStr());
     onChange && onChange();
   };
 
@@ -75,7 +86,13 @@ function InvestmentCard({ investment, onChange }) {
   };
 
   const handleDeleteInvestment = async () => {
-    if (!window.confirm(`Delete "${investment.name}"? This removes all logged contributions too.`))
+    if (
+      !window.confirm(
+        `Delete "${investment.name}"? This removes all logged contributions too, so ${fmt(
+          total
+        )} will be added back to your tracked bank balance.`
+      )
+    )
       return;
     const result = await deleteInvestment(investment.id);
     if (!result.success) {
@@ -119,6 +136,20 @@ function InvestmentCard({ investment, onChange }) {
                 <div className="text-sm font-semibold text-gray-700">{fmt(investment.targetAmount)}</div>
               </div>
             )}
+            {leftToFund !== null && (
+              <div>
+                <div className="text-xs text-gray-400">
+                  {leftToFund >= 0 ? "Left to fund" : "Over target by"}
+                </div>
+                <div
+                  className={`text-sm font-semibold ${
+                    leftToFund >= 0 ? "text-gray-700" : "text-amber-600"
+                  }`}
+                >
+                  {fmt(Math.abs(leftToFund))}
+                </div>
+              </div>
+            )}
           </div>
 
           {pct !== null && (
@@ -151,6 +182,9 @@ function InvestmentCard({ investment, onChange }) {
       {expanded && (
         <div className="border-t border-gray-100 bg-gray-50/60 p-4 space-y-3">
           <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide">Contributions</h4>
+          <p className="text-[11px] text-gray-400">
+            Each contribution is money leaving your bank account.
+          </p>
           {(investment.contributions || []).length === 0 ? (
             <p className="text-xs text-gray-400">No contributions logged yet.</p>
           ) : (
@@ -202,7 +236,7 @@ function InvestmentCard({ investment, onChange }) {
   );
 }
 
-function InvestmentsTab({ investments, onChange }) {
+function InvestmentsTab({ investments, onChange, bankBalance = null }) {
   const [form, setForm] = useState(initialForm);
   const [saving, setSaving] = useState(false);
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -236,6 +270,10 @@ function InvestmentsTab({ investments, onChange }) {
         <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
           <Rocket size={18} /> Add an Investment
         </h3>
+        <p className="text-xs text-gray-400 -mt-1">
+          Create the investment here, then open it and log each contribution. Contributions come off
+          your bank balance by themselves — don't also enter them as expenses.
+        </p>
 
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</label>
@@ -304,7 +342,14 @@ function InvestmentsTab({ investments, onChange }) {
             No investments yet.
           </div>
         ) : (
-          sorted.map((inv) => <InvestmentCard key={inv.id} investment={inv} onChange={onChange} />)
+          sorted.map((inv) => (
+            <InvestmentCard
+              key={inv.id}
+              investment={inv}
+              onChange={onChange}
+              bankBalance={bankBalance}
+            />
+          ))
         )}
       </div>
     </div>

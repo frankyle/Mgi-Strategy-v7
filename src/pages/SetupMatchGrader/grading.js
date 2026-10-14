@@ -1,60 +1,73 @@
 // grading.js
 // Pure grading logic — no side effects, so it can be reused for the live
 // preview in the form AND called again server-side/in tests if needed.
+//
+// STRATEGY: trade only in the London or New York session. Wait for a
+// higher-timeframe (4H or 2H) FVG / IFVG to be retested, then trade the move
+// in the OPPOSITE direction from the retest (bounce away from the zone).
+// The 1H chart is only used to compare / confirm that same bounce.
+//
+// Column re-use (no database migration needed):
+//   htf_timeframe     -> "4H" or "2H"
+//   htf_level_type    -> "Buy FVG" | "Sell FVG" | "Buy IFVG" | "Sell IFVG"
+//   htf_level_status  -> Untested / Retested / Broken
+//   htf_reaction      -> how price reacted at the retest
+//   ltf_session_grab  -> "london" | "newyork" | "none"   (session of the trade)
+//   ltf_fvg_tagged    -> true = 1H FVG/IFVG retested and price bounced away
+//   ltf_weekly_bias   -> no longer used (stays null; old rows keep blue/red)
+
+// Buy zones are bullish (price bounces UP -> long), Sell zones bearish (short).
+export const HTF_ZONE_TYPES = [
+  { value: "Buy FVG", label: "Buy FVG (bullish gap)", direction: "long" },
+  { value: "Sell FVG", label: "Sell FVG (bearish gap)", direction: "short" },
+  { value: "Buy IFVG", label: "Buy IFVG (inverted, support)", direction: "long" },
+  { value: "Sell IFVG", label: "Sell IFVG (inverted, resistance)", direction: "short" },
+];
+
+export const HTF_TIMEFRAMES = ["4H", "2H"];
 
 export const HTF_REACTIONS = [
-  { value: "sweep_reject", label: "Liquidity sweep + reject" },
-  { value: "engulf", label: "Engulfing at level" },
-  { value: "wick_reject", label: "Wick rejection" },
+  { value: "sweep_reject", label: "Retested, clean bounce away" },
+  { value: "engulf", label: "Engulfing candle away from zone" },
+  { value: "wick_reject", label: "Wick rejection from zone" },
   { value: "none", label: "No clean reaction" },
 ];
 
 export const LEVEL_STATUS = ["Untested", "Retested", "Broken"];
 
-// Phase 2 (LTF) — ICT weekly bias + session liquidity grab model.
-// Weekly bias: are we trading above the weekly open ("blue side", buys
-// only) or below it ("red side", sells only)? The LTF trigger itself is a
-// liquidity grab (a sweep-and-reject of a session high/low) that lines up
-// with that bias — Asian session, New York session, or both.
-export const WEEKLY_BIAS_OPTIONS = [
-  { value: "blue", label: "Above Weekly Open — Blue / Buy Side" },
-  { value: "red", label: "Below Weekly Open — Red / Sell Side" },
+// Options shown in the form (only the two sessions you trade).
+export const SESSION_OPTIONS = [
+  { value: "none", label: "Outside London / New York — no trade" },
+  { value: "london", label: "London session" },
+  { value: "newyork", label: "New York session" },
 ];
 
+// Full list used to display saved rows (includes labels of old logs).
 export const SESSION_GRAB_OPTIONS = [
-  { value: "none", label: "No session liquidity grab yet" },
-  { value: "asian", label: "Asian session Liquidity Grab" },
-  { value: "newyork", label: "London session Liquidity Grab" },
-  { value: "both", label: "Asian + London Liquidity Grab" },
+  ...SESSION_OPTIONS,
+  { value: "asian", label: "Asian session (old log)" },
+  { value: "both", label: "Asian + London (old log)" },
 ];
-
-function weeklyBiasToDirection(bias) {
-  if (bias === "blue") return "long";
-  if (bias === "red") return "short";
-  return null;
-}
 
 export function gradeSetup({
+  htfLevelStatus,
   htfReaction,
   htfDirection,
-  ltfWeeklyBias,
-  ltfSessionGrab,
+  ltfSession,
+  ltfBounce,
   ltfDirection,
 }) {
-  const htfConfirmed = htfReaction !== "none";
+  // Phase 1: the 4H/2H FVG/IFVG must have been RETESTED and price must have
+  // reacted (moved away) from it.
+  const htfConfirmed = htfLevelStatus === "Retested" && htfReaction !== "none";
 
-  // LTF trigger = weekly bias (above/below weekly open) AND a session
-  // liquidity grab (Asian and/or New York) that lines up with that bias.
-  // A grab that contradicts the weekly bias (e.g. a low sweep while on the
-  // red/sell side) doesn't count as a valid trigger.
-  const biasDirection = weeklyBiasToDirection(ltfWeeklyBias);
+  // Phase 2: only London or New York count, and the 1H zone must also have
+  // been retested with price bouncing away.
   const ltfConfirmed =
-    Boolean(ltfWeeklyBias) &&
-    ltfSessionGrab &&
-    ltfSessionGrab !== "none" &&
-    biasDirection === ltfDirection;
+    (ltfSession === "london" || ltfSession === "newyork") && Boolean(ltfBounce);
 
-  const directionsAgree = htfDirection === ltfDirection;
+  const directionsAgree =
+    Boolean(htfDirection) && Boolean(ltfDirection) && htfDirection === ltfDirection;
 
   if (htfConfirmed && ltfConfirmed && directionsAgree) {
     return { grade: "full", label: "Full Match" };

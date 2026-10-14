@@ -11,9 +11,13 @@ import {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   STATUS_LABELS,
+  OPENING_BALANCE_CATEGORY,
+  computePaidAmount,
 } from "./financeService";
 
-const initialForm = {
+// Built fresh each time so "today" is never stale if the app stays open
+// past midnight.
+const makeInitialForm = () => ({
   date: todayStr(),
   type: "Expense",
   usage: "Personal",
@@ -22,7 +26,7 @@ const initialForm = {
   paymentMethod: "Mobile Money",
   paymentStatus: "Paid",
   notes: "",
-};
+});
 
 function SegButton({ options, value, onChange, labels }) {
   return (
@@ -45,8 +49,8 @@ function SegButton({ options, value, onChange, labels }) {
   );
 }
 
-function TransactionForm({ onSaved }) {
-  const [form, setForm] = useState(initialForm);
+function TransactionForm({ onSaved, bankBalance = null }) {
+  const [form, setForm] = useState(makeInitialForm);
   const [saving, setSaving] = useState(false);
 
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -61,20 +65,40 @@ function TransactionForm({ onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.amount || Number(form.amount) <= 0) {
+    const amountNum = Number(form.amount);
+    if (!form.amount || !Number.isFinite(amountNum) || amountNum <= 0) {
       toast.error("Enter an amount first.");
       return;
     }
+    // The opening balance is money that is already in the bank, so it is
+    // always "Received" in full.
+    const toSave =
+      form.category === OPENING_BALANCE_CATEGORY ? { ...form, paymentStatus: "Paid" } : form;
+
     setSaving(true);
-    const result = await addTransaction(form);
+    const result = await addTransaction(toSave);
     setSaving(false);
     if (!result.success) {
       toast.error(result.error?.message || "Failed to save.");
       return;
     }
-    toast.success(`Logged ${form.type.toLowerCase()} of TZS ${Number(form.amount).toLocaleString()}`);
+    toast.success(`Logged ${form.type.toLowerCase()} of TZS ${amountNum.toLocaleString()}`);
+
+    // Soft warning only — it still saves. Cash going out of the account that
+    // is more than the tracked bank balance usually means something is
+    // missing (income not logged, or opening balance not set).
+    if (
+      form.type === "Expense" &&
+      bankBalance !== null &&
+      computePaidAmount({ amount: amountNum, paymentStatus: toSave.paymentStatus }) > bankBalance
+    ) {
+      toast("That is more than your tracked bank balance — check for income you haven't logged.", {
+        icon: "⚠️",
+      });
+    }
+
     setForm({
-      ...initialForm,
+      ...makeInitialForm(),
       date: form.date,
       type: form.type,
       usage: form.usage,
@@ -116,6 +140,7 @@ function TransactionForm({ onSaved }) {
         </div>
       )}
 
+      {form.category !== OPENING_BALANCE_CATEGORY && (
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
           {form.type === "Expense" ? "Payment Status" : "Receipt Status"}
@@ -134,6 +159,7 @@ function TransactionForm({ onSaved }) {
             : "Expected = you're counting on it but it hasn't landed. Partially Received = some of it has arrived. Received = fully in your account. You can change this later from the transaction list."}
         </p>
       </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
@@ -195,6 +221,19 @@ function TransactionForm({ onSaved }) {
           </select>
         </div>
       </div>
+
+      {form.type === "Income" && form.category === OPENING_BALANCE_CATEGORY && (
+        <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 rounded-xl p-3">
+          Enter what was in your bank account on the day you start tracking, and set that day as
+          the date. Add it once. Anything dated before it is treated as already included.
+        </p>
+      )}
+      {form.type === "Expense" && (
+        <p className="text-xs text-gray-400">
+          Investing or paying a loan? Don't log it here — use the Investments or Loans tab. It
+          comes off your bank balance automatically, and logging it here too would count it twice.
+        </p>
+      )}
 
       <div>
         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</label>
