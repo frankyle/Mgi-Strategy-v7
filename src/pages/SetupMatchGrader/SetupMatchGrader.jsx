@@ -37,9 +37,9 @@ function SetupMatchGrader() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">🎯 Setup Match Grader</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Log your Daily/4H reversal read (Phase 1) against your 15m continuation
-          trigger (Phase 2). The grade tells you whether they actually lined up —
-          the indicator can't do that part.
+          Log your 4H/2H FVG/IFVG retest (Phase 1) against your 1H confirmation in the
+          London or New York session (Phase 2). The grade tells you whether they actually
+          lined up.
         </p>
       </div>
 

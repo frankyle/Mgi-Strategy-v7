@@ -3,6 +3,8 @@
 // you borrowed from, the principal, the interest you're being charged,
 // payments you make toward it, and the running balance you still owe
 // (principal + accrued interest - paid so far).
+// Bank account: the loan amount counts as money IN on the date borrowed, and
+// every payment you log counts as money OUT — both automatically.
 import React, { useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp, HandCoins } from "lucide-react";
 import toast from "react-hot-toast";
@@ -38,7 +40,7 @@ const STATUS_STYLES = {
   Paid: "bg-emerald-100 text-emerald-700",
 };
 
-function LoanCard({ loan, onChange }) {
+function LoanCard({ loan, onChange, bankBalance = null }) {
   const [expanded, setExpanded] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState(todayStr());
@@ -56,17 +58,34 @@ function LoanCard({ loan, onChange }) {
 
   const handleAddPayment = async (e) => {
     e.preventDefault();
-    if (!payAmount || Number(payAmount) <= 0) {
+    const payNum = Number(payAmount);
+    if (!payAmount || !Number.isFinite(payNum) || payNum <= 0) {
       toast.error("Enter a payment amount.");
       return;
     }
-    const result = await addRepayment(loan.id, { amount: payAmount, date: payDate });
+    const result = await addRepayment(loan.id, { amount: payNum, date: payDate });
     if (!result.success) {
       toast.error(result.error?.message || "Failed to save payment.");
       return;
     }
-    toast.success("Payment logged.");
+    toast.success("Payment logged — taken off your bank balance.");
+    if (bankBalance !== null && payNum > bankBalance) {
+      toast("That is more than your tracked bank balance — check for income you haven't logged.", {
+        icon: "⚠️",
+      });
+    }
+
+    // Once the loan is fully paid, close it so interest stops growing on a
+    // loan with nothing left to pay.
+    if (loan.status !== "Paid" && result.loan) {
+      const atPayDate = computeLoanSummary({ ...result.loan, status: "Paid", paidDate: payDate });
+      if (atPayDate.balanceRemaining <= 0) {
+        const closed = await updateLoan(loan.id, { status: "Paid", paidDate: payDate });
+        if (closed.success) toast.success("Loan fully paid — marked as Paid.");
+      }
+    }
     setPayAmount("");
+    setPayDate(todayStr());
     onChange && onChange();
   };
 
@@ -212,7 +231,7 @@ function LoanCard({ loan, onChange }) {
   );
 }
 
-function LoansTab({ loans, onChange }) {
+function LoansTab({ loans, onChange, bankBalance = null }) {
   const [form, setForm] = useState(initialLoanForm);
   const [saving, setSaving] = useState(false);
   const set = (key, val) => setForm((prev) => ({ ...prev, [key]: val }));
@@ -223,7 +242,7 @@ function LoansTab({ loans, onChange }) {
       toast.error("Enter who or what you borrowed from.");
       return;
     }
-    if (!form.principal || Number(form.principal) <= 0) {
+    if (!form.principal || !Number.isFinite(Number(form.principal)) || Number(form.principal) <= 0) {
       toast.error("Enter the loan amount.");
       return;
     }
@@ -250,6 +269,10 @@ function LoansTab({ loans, onChange }) {
         <h3 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
           <HandCoins size={18} /> Log Money You've Borrowed
         </h3>
+        <p className="text-xs text-gray-400 -mt-1">
+          The amount is counted as money received in your bank account on the date borrowed, and each
+          payment you log comes off the bank balance. Don't also log them as income or expenses.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -391,7 +414,9 @@ function LoansTab({ loans, onChange }) {
             No loans logged yet.
           </div>
         ) : (
-          sorted.map((loan) => <LoanCard key={loan.id} loan={loan} onChange={onChange} />)
+          sorted.map((loan) => (
+            <LoanCard key={loan.id} loan={loan} onChange={onChange} bankBalance={bankBalance} />
+          ))
         )}
       </div>
     </div>

@@ -1,10 +1,16 @@
 // financeService.js
 // Supabase-backed data layer for the Finance Tracker feature: day-to-day
-// income/expenses (Personal or Family usage, same account), loans you've
-// borrowed (from people, banks, or loan companies) with interest, and
-// investments (e.g. dehydration machine, prop firm account) with
-// contributions over time. Mirrors the async CRUD pattern used by
-// SetupMatchGraderService.jsx elsewhere in this app.
+// income/expenses (Personal or Family usage), loans you've borrowed (from
+// people, banks, or loan companies) with interest, and investments (e.g.
+// dehydration machine, prop firm account) with contributions over time.
+//
+// ONE BANK ACCOUNT: every shilling moves through a single bank account, so
+// the app keeps one ledger (see buildLedger below):
+//   MONEY IN  = income received + loans received (on the date borrowed)
+//   MONEY OUT = expenses paid + loan payments + investment contributions
+//   BANK BALANCE = money in - money out (starting from your Opening Balance)
+// Investments and loan payments are logged in their own tabs and come off
+// the bank balance automatically — do NOT also log them as expenses.
 import { supabase } from "../../supabaseClient";
 
 export const EXPENSE_CATEGORIES = [
@@ -20,9 +26,16 @@ export const EXPENSE_CATEGORIES = [
   "Shopping",
   "Trading/Tools",
   "Loan Given Out",
-  "Investment",
   "Other",
 ];
+
+// Investments are logged in the Investments tab (they come off the bank
+// balance automatically). Old expense rows that still use this category are
+// kept and counted, but the overview warns about possible double counting.
+export const LEGACY_INVESTMENT_CATEGORY = "Investment";
+
+// Your bank balance on the day you start tracking. Log it once as Income.
+export const OPENING_BALANCE_CATEGORY = "Opening Balance";
 
 export const INCOME_CATEGORIES = [
   "Salary",
@@ -31,6 +44,7 @@ export const INCOME_CATEGORIES = [
   "Loan Repayment Received",
   "Interest Received",
   "Other Income",
+  OPENING_BALANCE_CATEGORY,
 ];
 
 export const USAGE_TYPES = ["Personal", "Family"];
@@ -68,8 +82,12 @@ const DEFAULT_INVESTMENTS = [
   },
 ];
 
+// Local calendar date (YYYY-MM-DD). toISOString() would give the UTC date,
+// which is "yesterday" in Tanzania between 00:00 and 03:00.
 export function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 const formatError = (error) => ({
@@ -136,7 +154,13 @@ function toTxRow(tx, userId) {
 }
 
 function fromRepaymentRow(row) {
-  return { id: row.id, date: row.date, amount: Number(row.amount) || 0, note: row.note || "" };
+  return {
+    id: row.id,
+    date: row.date,
+    amount: Number(row.amount) || 0,
+    note: row.note || "",
+    createdAt: row.created_at,
+  };
 }
 
 function fromLoanRow(row) {
@@ -177,7 +201,13 @@ function toLoanRow(loan, userId) {
 }
 
 function fromContributionRow(row) {
-  return { id: row.id, date: row.date, amount: Number(row.amount) || 0, note: row.note || "" };
+  return {
+    id: row.id,
+    date: row.date,
+    amount: Number(row.amount) || 0,
+    note: row.note || "",
+    createdAt: row.created_at,
+  };
 }
 
 function fromInvestmentRow(row) {
@@ -294,7 +324,10 @@ export function computeTransactionStats(txs, month = "All") {
   const filtered =
     month === "All" ? txs : txs.filter((t) => (t.date || "").slice(0, 7) === month);
 
-  const income = filtered.filter((t) => t.type === "Income");
+  // The Opening Balance is your starting bank balance, not earned income.
+  const income = filtered.filter(
+    (t) => t.type === "Income" && t.category !== OPENING_BALANCE_CATEGORY
+  );
   const expenses = filtered.filter((t) => t.type === "Expense");
 
   // Full amount promised, whether or not it's actually landed yet.
@@ -339,9 +372,6 @@ export function computeTransactionStats(txs, month = "All") {
     totalExpensesFull,
     totalOutstanding,
     totalPlanned,
-    // Real cash balance right now: money actually received minus money
-    // actually paid out. (Not affected by income/expenses still pending.)
-    net: totalIncomeReceived - totalExpenses,
     personalExpenses,
     familyExpenses,
     byCategory,
@@ -528,8 +558,26 @@ export async function getInvestments() {
 
   if (error) return formatError(error);
 
-  // First-time setup: seed the two investments currently being tracked.
-  if (data.length === 0) {
+  // First-time setup only: seed the two investments currently being tracked.
+  // (Remembered per user so deleting them all later doesn't bring them back.)
+  const seedKey = `mgi_finance_investments_seeded_${user.id}`;
+  let alreadySeeded = false;
+  try {
+    alreadySeeded = localStorage.getItem(seedKey) === "1";
+    if (data.length > 0 && !alreadySeeded) {
+      localStorage.setItem(seedKey, "1");
+      alreadySeeded = true;
+    }
+  } catch {
+    alreadySeeded = data.length > 0;
+  }
+
+  if (data.length === 0 && !alreadySeeded) {
+    try {
+      localStorage.setItem(seedKey, "1");
+    } catch {
+      /* ignore */
+    }
     const seedRows = DEFAULT_INVESTMENTS.map((inv) => toInvestmentRow(inv, user.id));
     const { error: seedError } = await supabase.from("finance_investments").insert(seedRows);
     if (seedError) return formatError(seedError);
@@ -634,30 +682,188 @@ export function computeInvestmentsOverview(investments) {
 }
 
 // ---------------------------------------------------------------------
-// Projection: "if every expense gets paid, every income arrives, and
-// every investment gets fully funded, what am I left with?"
+// Bank account ledger — ONE account, everything in and out of it
 // ---------------------------------------------------------------------
-export function computeProjectedOverview(txStats, investments, loans) {
-  // Only investments with a target amount set count as "still owed" —
-  // one with no target isn't a commitment, just a tracker with nothing
-  // pledged yet.
+const monthOf = (d) => (d || "").slice(0, 7);
+
+// Builds one list of every money movement, oldest first, with a running
+// bank balance. Only money that has actually moved counts:
+//   + income received (paid portion), loans received (full principal, on
+//     the date borrowed)
+//   - expenses paid (paid portion), loan payments, investment contributions
+//
+// Opening balance: if you logged an "Opening Balance" income, everything
+// dated BEFORE it is already inside that balance, so it is shown greyed out
+// and not counted again.
+export function buildLedger(transactions = [], loans = [], investments = []) {
+  const raw = [];
+
+  transactions.forEach((t) => {
+    const paid = computePaidAmount(t);
+    if (paid <= 0) return;
+    const isIncome = t.type === "Income";
+    raw.push({
+      id: `tx-${t.id}`,
+      date: t.date || "",
+      createdAt: t.createdAt || "",
+      kind: isIncome
+        ? t.category === OPENING_BALANCE_CATEGORY
+          ? "opening"
+          : "income"
+        : "expense",
+      label: t.category,
+      detail: t.notes || "",
+      credit: isIncome ? paid : 0,
+      debit: isIncome ? 0 : paid,
+    });
+  });
+
+  loans.forEach((l) => {
+    const name = l.lenderName || "lender";
+    if ((l.principal || 0) > 0) {
+      raw.push({
+        id: `loan-${l.id}`,
+        date: l.dateBorrowed || "",
+        createdAt: l.createdAt || "",
+        kind: "loan_in",
+        label: `Loan received — ${name}`,
+        detail: l.notes || "",
+        credit: l.principal,
+        debit: 0,
+      });
+    }
+    (l.repayments || []).forEach((r) => {
+      raw.push({
+        id: `rep-${r.id}`,
+        date: r.date || "",
+        createdAt: r.createdAt || "",
+        kind: "loan_out",
+        label: `Loan payment — ${name}`,
+        detail: r.note || "",
+        credit: 0,
+        debit: r.amount,
+      });
+    });
+  });
+
+  investments.forEach((inv) => {
+    (inv.contributions || []).forEach((c) => {
+      raw.push({
+        id: `inv-${c.id}`,
+        date: c.date || "",
+        createdAt: c.createdAt || "",
+        kind: "investment",
+        label: `Invested — ${inv.name}`,
+        detail: c.note || "",
+        credit: 0,
+        debit: c.amount,
+      });
+    });
+  });
+
+  const openingDates = raw
+    .filter((e) => e.kind === "opening")
+    .map((e) => e.date)
+    .sort();
+  const startDate = openingDates[0] || null;
+
+  raw.sort(
+    (a, b) =>
+      a.date.localeCompare(b.date) ||
+      (b.kind === "opening" ? 1 : 0) - (a.kind === "opening" ? 1 : 0) ||
+      a.createdAt.localeCompare(b.createdAt)
+  );
+
+  let balance = 0;
+  const entries = raw.map((e) => {
+    const counted = !startDate || e.date >= startDate;
+    if (counted) balance += e.credit - e.debit;
+    return { ...e, counted, balance: counted ? balance : null };
+  });
+
+  return { entries, startDate, hasOpening: Boolean(startDate), balance };
+}
+
+// Distinct "YYYY-MM" months that have any money movement, newest first.
+export function getLedgerMonths(ledger) {
+  const set = new Set(ledger.entries.map((e) => monthOf(e.date)).filter(Boolean));
+  return Array.from(set).sort().reverse();
+}
+
+// Totals for one month (or all time) plus the bank balance at the start and
+// end of it. balanceEnd = everything counted up to the end of that month.
+export function computeAccountSummary(ledger, month = "All") {
+  const counted = ledger.entries.filter((e) => e.counted);
+  const sum = (arr, key) => arr.reduce((s, e) => s + e[key], 0);
+
+  const inPeriod = month === "All" ? counted : counted.filter((e) => monthOf(e.date) === month);
+  const upTo = month === "All" ? counted : counted.filter((e) => monthOf(e.date) <= month);
+  const of = (kind, key) => sum(inPeriod.filter((e) => e.kind === kind), key);
+
+  const income = of("income", "credit");
+  const loansReceived = of("loan_in", "credit");
+  const expenses = of("expense", "debit");
+  const invested = of("investment", "debit");
+  const loanPayments = of("loan_out", "debit");
+
+  const moneyIn = income + loansReceived;
+  const moneyOut = expenses + invested + loanPayments;
+  const balanceEnd = sum(upTo, "credit") - sum(upTo, "debit");
+
+  return {
+    income,
+    loansReceived,
+    expenses,
+    invested,
+    loanPayments,
+    moneyIn,
+    moneyOut,
+    net: moneyIn - moneyOut,
+    balanceStart: balanceEnd - (moneyIn - moneyOut),
+    balanceEnd,
+  };
+}
+
+// ---------------------------------------------------------------------
+// Projection: "if every expected income arrives, every unpaid expense is
+// paid, every investment is fully funded and every loan is cleared, what
+// is left in the bank?"
+//
+//   projected = bank balance NOW
+//             + income still expected
+//             - expenses still owed
+//             - investment targets still to fund
+//             - loan balances still owed (principal + interest - paid)
+//
+// Starting from the real bank balance matters: money already invested or
+// already paid toward loans has already left the account, so it must not be
+// subtracted a second time.
+// ---------------------------------------------------------------------
+export function computeProjectedOverview(txStatsAll, investments, loans, bankBalance) {
+  // Only investments with a target that are not marked Completed still need
+  // money — one with no target isn't a commitment yet.
   const investmentsRemaining = (investments || []).reduce((s, inv) => {
     const target = inv.targetAmount || 0;
-    if (target <= 0) return s;
-    const contributed = computeInvestmentTotal(inv);
-    return s + Math.max(0, target - contributed);
+    if (target <= 0 || inv.status === "Completed") return s;
+    return s + Math.max(0, target - computeInvestmentTotal(inv));
   }, 0);
 
   const loansRemaining = (loans || [])
     .filter((l) => l.status !== "Paid")
     .reduce((s, l) => s + computeLoanSummary(l).balanceRemaining, 0);
 
-  // Every income lands (totalIncome, not just what's already received),
-  // minus every expense gets paid in full (totalExpensesFull, not just
-  // what's already gone out), minus whatever's still left to put into
-  // investments, minus whatever's still owed on loans.
-  const projectedFinalBalance =
-    txStats.totalIncome - txStats.totalExpensesFull - investmentsRemaining - loansRemaining;
+  const incomeExpected = txStatsAll.totalIncomeExpected || 0;
+  const expensesOwed = txStatsAll.totalOutstanding || 0;
 
-  return { investmentsRemaining, loansRemaining, projectedFinalBalance };
+  const projectedFinalBalance =
+    (bankBalance || 0) + incomeExpected - expensesOwed - investmentsRemaining - loansRemaining;
+
+  return {
+    bankBalance: bankBalance || 0,
+    incomeExpected,
+    expensesOwed,
+    investmentsRemaining,
+    loansRemaining,
+    projectedFinalBalance,
+  };
 }

@@ -52,8 +52,17 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
   const gradeLabel = (g) => (g === "full" ? "Full Match" : g === "partial" ? "Partial" : "No Match");
   const sessionLabel = (v) =>
     SESSION_GRAB_OPTIONS.find((o) => o.value === v)
-      ?.label.replace(" session grab", "")
-      .replace("No session liquidity grab yet", "No grab") || "—";
+      ?.label.replace(" session", "")
+      .replace("Outside London / New York — no trade", "No session") || "—";
+
+  // Old logs saved a weekly bias (blue/red); show it only for those rows.
+  const legacyBias = (s) =>
+    s.ltf_weekly_bias === "blue" || s.ltf_weekly_bias === "red" ? (
+      <span className={s.ltf_weekly_bias === "blue" ? "text-blue-600" : "text-rose-600"}>
+        {s.ltf_weekly_bias === "blue" ? "Blue" : "Red"}
+        {" / "}
+      </span>
+    ) : null;
 
   return (
     <div>
@@ -94,7 +103,7 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
                   <dd className="text-gray-700">{s.htf_timeframe}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-400 uppercase text-[10px]">Level</dt>
+                  <dt className="text-gray-400 uppercase text-[10px]">Zone</dt>
                   <dd className="text-gray-700">{s.htf_level_type} · {s.htf_level_status}</dd>
                 </div>
                 <div>
@@ -102,14 +111,11 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
                   <dd className="text-gray-700">{HTF_REACTIONS.find((r) => r.value === s.htf_reaction)?.label || "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-gray-400 uppercase text-[10px]">LTF trigger</dt>
+                  <dt className="text-gray-400 uppercase text-[10px]">1H trigger</dt>
                   <dd className="text-gray-700">
-                    <span className={s.ltf_weekly_bias === "blue" ? "text-blue-600" : "text-rose-600"}>
-                      {s.ltf_weekly_bias === "blue" ? "Blue" : s.ltf_weekly_bias === "red" ? "Red" : "—"}
-                    </span>
-                    {" / "}
+                    {legacyBias(s)}
                     {sessionLabel(s.ltf_session_grab)}
-                    {s.ltf_fvg_tagged ? <span className="text-sky-600"> · FVG</span> : null}
+                    {s.ltf_fvg_tagged ? <span className="text-sky-600"> · 1H bounce</span> : null}
                   </dd>
                 </div>
               </dl>
@@ -119,7 +125,7 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
                   {s.htf_chart_url && (
                     <button onClick={() => setZoomImg(s.htf_chart_url)} className="text-center">
                       <img src={s.htf_chart_url} alt="HTF chart" className="w-20 h-16 object-cover rounded-lg border-2 border-blue-200" />
-                      <span className="block text-[10px] text-gray-500 mt-0.5">Daily/4H</span>
+                      <span className="block text-[10px] text-gray-500 mt-0.5">4H/2H</span>
                     </button>
                   )}
                   {s.ltf_chart_url && (
@@ -160,9 +166,9 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
           <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
             <th className="px-4 py-3">Pair</th>
             <th className="px-4 py-3">HTF</th>
-            <th className="px-4 py-3">Level</th>
+            <th className="px-4 py-3">Zone</th>
             <th className="px-4 py-3">Reaction</th>
-            <th className="px-4 py-3">LTF Trigger</th>
+            <th className="px-4 py-3">1H Trigger</th>
             <th className="px-4 py-3">Direction</th>
             <th className="px-4 py-3">Charts</th>
             <th className="px-4 py-3">Grade</th>
@@ -184,17 +190,11 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
                   {HTF_REACTIONS.find((r) => r.value === s.htf_reaction)?.label}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  <span className={s.ltf_weekly_bias === "blue" ? "text-blue-600" : "text-rose-600"}>
-                    {s.ltf_weekly_bias === "blue" ? "Blue" : s.ltf_weekly_bias === "red" ? "Red" : "—"}
-                  </span>
-                  {" / "}
-                  {SESSION_GRAB_OPTIONS.find((o) => o.value === s.ltf_session_grab)?.label.replace(
-                    " session grab",
-                    ""
-                  ).replace("No session liquidity grab yet", "No grab") || "—"}
+                  {legacyBias(s)}
+                  {sessionLabel(s.ltf_session_grab)}
                   {s.ltf_fvg_tagged ? (
-                    <span className="ml-1 text-sky-600" title="FVG present (optional tag)">
-                      · FVG
+                    <span className="ml-1 text-sky-600" title="1H FVG/IFVG retested, price bounced away">
+                      · 1H bounce
                     </span>
                   ) : null}
                 </td>
@@ -215,7 +215,7 @@ export default function SetupMatchGraderTable({ setups, onChange }) {
                         alt="HTF chart"
                         onClick={() => setZoomImg(s.htf_chart_url)}
                         className="w-9 h-9 object-cover rounded-md border border-blue-200 cursor-pointer"
-                        title="Daily/4H chart"
+                        title="4H/2H chart"
                       />
                     )}
                     {s.ltf_chart_url && (

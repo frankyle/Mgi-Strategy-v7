@@ -1,9 +1,25 @@
 // FinanceTracker.jsx
-import React, { useEffect, useState, useCallback } from "react";
-import { LayoutGrid, ListChecks, HandCoins, Rocket, Loader2, AlertTriangle } from "lucide-react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import {
+  LayoutGrid,
+  ListChecks,
+  HandCoins,
+  Rocket,
+  Landmark,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
 import { Toaster } from "react-hot-toast";
-import { getTransactions, getLoans, getInvestments, getAvailableMonths } from "./financeService";
+import {
+  getTransactions,
+  getLoans,
+  getInvestments,
+  buildLedger,
+  getLedgerMonths,
+  computeAccountSummary,
+} from "./financeService";
 import FinanceOverview from "./FinanceOverview";
+import BankLedger from "./BankLedger";
 import TransactionForm from "./TransactionForm";
 import TransactionTable from "./TransactionTable";
 import LoansTab from "./LoansTab";
@@ -14,6 +30,7 @@ const TABS = [
   { key: "transactions", label: "Income & Expenses", icon: ListChecks },
   { key: "loans", label: "Loans", icon: HandCoins },
   { key: "investments", label: "Investments", icon: Rocket },
+  { key: "bank", label: "Bank Account", icon: Landmark },
 ];
 
 function FinanceTracker() {
@@ -50,7 +67,16 @@ function FinanceTracker() {
     refresh();
   }, [refresh]);
 
-  const months = getAvailableMonths(transactions);
+  // One bank account: every movement (income, expenses, loans, investments)
+  // goes through the same ledger so the balance can't drift between tabs.
+  const ledger = useMemo(
+    () => buildLedger(transactions, loans, investments),
+    [transactions, loans, investments]
+  );
+  const months = getLedgerMonths(ledger);
+  const bankBalance = ledger.hasOpening
+    ? computeAccountSummary(ledger, "All").balanceEnd
+    : null; // only meaningful once an opening balance is set
 
   if (loading) {
     return (
@@ -87,9 +113,9 @@ function FinanceTracker() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">💵 Finance Tracker</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Track income, day-to-day expenses (personal & family, same account), loans you've
-          borrowed with interest, and your investments — like the dehydration machine build and
-          the prop firm account. Synced to your account via Supabase.
+          Everything runs through your one bank account: income and loans coming in; expenses,
+          loan payments and investments going out. Log each thing once, in its own tab, and the
+          bank balance updates by itself.
         </p>
       </div>
 
@@ -110,7 +136,7 @@ function FinanceTracker() {
           </button>
         ))}
 
-        {tab === "overview" && months.length > 0 && (
+        {(tab === "overview" || tab === "bank") && months.length > 0 && (
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -131,20 +157,25 @@ function FinanceTracker() {
           transactions={transactions}
           loans={loans}
           investments={investments}
+          ledger={ledger}
           month={month}
         />
       )}
 
       {tab === "transactions" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-          <TransactionForm onSaved={refresh} />
+          <TransactionForm onSaved={refresh} bankBalance={bankBalance} />
           <TransactionTable transactions={transactions} onChange={refresh} />
         </div>
       )}
 
-      {tab === "loans" && <LoansTab loans={loans} onChange={refresh} />}
+      {tab === "loans" && <LoansTab loans={loans} onChange={refresh} bankBalance={bankBalance} />}
 
-      {tab === "investments" && <InvestmentsTab investments={investments} onChange={refresh} />}
+      {tab === "investments" && (
+        <InvestmentsTab investments={investments} onChange={refresh} bankBalance={bankBalance} />
+      )}
+
+      {tab === "bank" && <BankLedger ledger={ledger} month={month} />}
     </div>
   );
 }

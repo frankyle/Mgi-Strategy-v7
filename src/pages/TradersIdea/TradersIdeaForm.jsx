@@ -225,7 +225,7 @@ function TradersIdeaForm({ initialData, onSubmit, onClose }) {
         </div>
       </div>
 
-      {/* Journal: psychology, Fibonacci, A-setup checklist */}
+      {/* Journal: trading rules and review */}
       <JournalSection
         value={form.journal}
         onChange={(journal) => setForm((prev) => ({ ...prev, journal }))}
